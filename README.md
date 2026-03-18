@@ -100,3 +100,12 @@ A `.dockerignore` file was created to exclude unnecessary files from the Docker 
 | `.dockerignore`, `Dockerfile` | Docker configuration files | Only needed during build, not inside the final image. |
 | `*.swp`, `*.swo`, `.vscode/`, `.idea/` | IDE/editor files | Development environment files not required in production. |
 | `.env` | Environment variables file | May contain sensitive data such as API keys or secrets. |
+
+# part1
+# step 1.3
+## Docker Image Size Comparison
+
+| Version | Base Image         | Size   |
+|---------|--------------------|--------|
+| v2.0    | python:3.11-slim | 234MB  |
+| v1.0    | python:3.11-alpine   |~105MB|
