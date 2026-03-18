@@ -1,29 +1,23 @@
-# Stage 1: Builder
-FROM python:3.11-alpine AS builder
-
-# Set working directory
+#Stage 1: builder
+#Install all dependencies into a virtual environment. This stage will NOT be in the final image.
+FROM python:3.11-slim AS builder
 WORKDIR /app
-
-# Install build dependencies
 COPY requirements.txt .
-RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir -r requirements.txt -t /app/deps
+RUN python -m venv /opt/venv && \
+/opt/venv/bin/pip install --no-cache-dir -r requirements.txt
 
-# Copy application code
-COPY . .
 
-# Stage 2: Final image
-FROM python:3.11-alpine 
-# FROM python:3.11-slim
-
+#Stage 2: runtime (final image)
+#Copy only the virtual environment from the builder stage — no pip, no build tools.
+FROM python:3.11-slim AS runtime
 WORKDIR /app
-
-# Copy only installed dependencies from builder
-COPY --from=builder /app/deps /usr/local/lib/python3.11/site-packages
-
-# Copy only the app source code
-COPY --from=builder /app /app
-
-# Expose port and run the app
+# Copy venv from builder — nothing else
+COPY --from=builder /opt/venv /opt/venv
+COPY app.py .
+# Non-root user
+RUN adduser --disabled-password --gecos "" appuser && \
+chown -R appuser /app
+USER appuser
+ENV PATH=/opt/venv/bin:$PATH
 EXPOSE 5000
 CMD ["python", "app.py"]
