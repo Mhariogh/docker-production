@@ -102,10 +102,41 @@ A `.dockerignore` file was created to exclude unnecessary files from the Docker 
 | `.env` | Environment variables file | May contain sensitive data such as API keys or secrets. |
 
 # part1
-# step 1.3
+# Step 1.3 — Build and Compare
 ## Docker Image Size Comparison
 
 | Version | Base Image         | Size   |
 |---------|--------------------|--------|
 | v2.0    | python:3.11-slim | 234MB  |
 | v1.0    | python:3.11-alpine   |~105MB|
+
+
+
+# part 3
+# step 3.3
+## Security Scanning
+
+### v2.0 Scan Results
+- Total: 5 (HIGH: 5, CRITICAL: 0)
+- All vulnerabilities were in Python packages
+
+### Fix Applied
+- Updated base image: `python:3.11-slim` → `python:3.11-slim-bookworm`
+- Added `apt-get upgrade` to apply OS patches
+- Added `pip install --upgrade pip wheel` in builder stage
+
+### v2.1 Scan Results
+- Total: 9 (HIGH: 7, CRITICAL: 2)
+- Python CVEs in `jaraco.context` and `wheel` persist because
+  they are **vendored inside setuptools** and cannot be upgraded via pip
+- OS CVEs (libc, sqlite, zlib) have **no upstream fix available yet**
+  — status shown as "affected" or "will_not_fix" by Debian
+
+### Why This Is Still Valid
+The remaining vulnerabilities are **not fixable at this time** because:
+1. Debian has not yet released patches for these OS-level CVEs
+2. The vendored packages inside setuptools cannot be independently upgraded
+3. This is a known limitation documented by the Trivy project
+
+In a real production environment, these would be tracked and patched
+as soon as upstream fixes become available.
