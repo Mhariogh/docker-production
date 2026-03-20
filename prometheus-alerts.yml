@@ -1,0 +1,38 @@
+groups:
+  - name: flask_app_alerts
+    rules:
+
+      # ───────────────────────────────────────────────────────────────
+      # Alert : FlaskAppDown
+      # Purpose: Fire when the Flask app has had NO successful health
+      #          checks (i.e. Prometheus cannot scrape it) for > 30 s.
+      #
+      # How it works:
+      #   • Prometheus sets the built-in metric `up` to 1 when a scrape
+      #     succeeds and to 0 when it fails (connection refused, timeout…).
+      #   • `up{job="flask_app"} == 0` is therefore true whenever the
+      #     Flask app is unreachable.
+      #   • `for: 30s` means the condition must be continuously true for
+      #     at least 30 seconds before the alert transitions from PENDING
+      #     to FIRING, preventing false positives from momentary blips.
+      #
+      # Labels:
+      #   severity=critical  – routes the alert to on-call channels in
+      #                        Alertmanager (PagerDuty, Slack #incidents…)
+      #
+      # Annotations:
+      #   summary     – one-line description shown in the Alerts UI
+      #   description – richer context interpolated with label values
+      # ───────────────────────────────────────────────────────────────
+      - alert: FlaskAppDown
+        expr: up{job="flask_app"} == 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Flask application is down"
+          description: >
+            The Flask app (instance {{ $labels.instance }}) has been
+            unreachable for more than 30 seconds.
+            No successful health checks have been recorded.
+            Immediate investigation required.

@@ -1,142 +1,181 @@
-# Docker Mastery Assignment
+# Docker in Production Assignment
 
-This repository contains the Docker project for the Docker Mastery Assignment. The project demonstrates building, running, and deploying a Flask application using Docker, Docker Compose, and multiple container registries (DockerHub, GHCR, AWS ECR, and Azure ACR).
+This repository contains the Docker in Production assignment. It demonstrates multi-stage builds, GitHub Actions CI/CD, container security scanning, multi-service orchestration with Docker Compose, and Prometheus/Grafana monitoring of a Flask application.
 
 ---
 
 ## Table of Contents
-1. Project Overview
-2. Technologies Used
-3. Docker Images
-4. Running the Project Locally
-5. Challenges and Solutions
-6. Screenshots
-
+1. [Project Overview](#project-overview)
+2. [Technologies Used](#technologies-used)
+3. [GHCR Image URL](#ghcr-image-url)
+4. [Image Size Comparison](#image-size-comparison)
+5. [Trivy Scan Findings](#trivy-scan-findings)
+6. [Start the Full Stack](#start-the-full-stack)
+7. [Screenshots](#screenshots)
+8. [Reflection](#reflection)
 
 ---
 
 ## Project Overview
 
-This project is a **full-stack Flask application** that interacts with Redis and PostgreSQL. Docker was used to containerize each component to simplify deployment. GitHub Actions was configured to automatically build and push Docker images to GitHub Container Registry (GHCR).
+A full-stack Flask application containerized with Docker, orchestrated with Docker Compose across 5 services (Flask, Redis, PostgreSQL, Prometheus, Grafana). GitHub Actions automates building and pushing images to GHCR on every push to main.
 
 ---
 
 ## Technologies Used
 
-- Docker  
-- Docker Compose  
-- Flask (Python)  
-- Redis  
-- PostgreSQL  
-- GitHub Actions  
-- AWS ECR  
-- Azure Container Registry (Bonus)
+- Docker (multi-stage builds)
+- Docker Compose
+- Flask (Python)
+- Redis
+- PostgreSQL
+- GitHub Actions (CI/CD)
+- Prometheus (metrics + alerting)
+- Grafana (dashboards)
+- Trivy (container security scanning)
+- GHCR (GitHub Container Registry)
 
 ---
 
-## Docker Images
+## GHCR Image URL
 
-### 1. DockerHub Image
-https://hub.docker.com/r/cwamie/flask-app
+The image is automatically built and pushed by the GitHub Actions pipeline:
 
-### 2. GHCR Image
-ghcr.io/Mhariogh/flask-app:latest
+```
+ghcr.io/mhariogh/docker-production:latest
+```
 
-### 3. AWS ECR Repository URI
-901481721710.dkr.ecr.us-east-1.amazonaws.com/flask-app:latest
-
-### 4. Azure Container Registry (Bonus)
-stephendockerassign.azurecr.io/flask-app:v1.0
+Pipeline file: `.github/workflows/docker-publish.yml`
 
 ---
 
-## Running the Project Locally
+## Image Size Comparison
 
-To start the project locally, use Docker Compose
-' docker compose up --build -d  '
+Multi-stage builds significantly reduced the final image size by separating the build environment from the runtime environment:
 
-This will:
-Build all images
-Start the Flask app, Redis, and PostgreSQL containers
+| Version | Base Image | Size |
+|---------|-----------|------|
+| Assignment 1 (single-stage) | `python:3.11` | ~1.0GB |
+| Assignment 2 v2.0 (multi-stage) | `python:3.11-slim` | 234MB |
+| Assignment 2 v2.1 (optimised) | `python:3.11-alpine` | ~105MB |
 
-Run in detached mode
-To stop the project:
-'docker compose down '
+**Reduction: ~77% smaller** compared to the original single-stage image.
 
+---
 
-Challenges and Solutions
-
-1. GitHub Actions Workflow Errors
-
-Issue: Workflow failed to push images to GHCR due to incorrect repository naming.
-
-Solution: Used ${{ github.repository_owner }} instead of hardcoding my username.
-
-2. Docker Image Push Issues
-
-Issue: Authentication errors while pushing to DockerHub.
-
-Solution: Logged in using docker login with correct credentials.
-
-3. AWS ECR Authentication
-
-Issue: Docker could not authenticate to ECR.
-
-Solution: Ran aws ecr get-login-password and piped it to docker login.
-
-4. ACR Push Formatting Issues
-
-Issue: Docker tag command formatting caused errors.
-
-Solution: Ensured the full registry path was on a single line.
-## Bonus D: .dockerignore
-A `.dockerignore` file was created to exclude unnecessary files from the Docker build context. This reduces build time, decreases image size, and prevents sensitive files from being included.
-
-| Pattern | Description | Reason for Exclusion |
-|--------|-------------|----------------------|
-| `__pycache__/`, `*.pyc`, `*.pyo` | Python cache files | Automatically generated and not required to run the application. |
-| `venv/`, `env/` | Virtual environments | Dependencies will be installed using `requirements.txt`. |
-| `.git`, `.gitignore` | Git repository files | Version control files not needed in the container. |
-| `.dockerignore`, `Dockerfile` | Docker configuration files | Only needed during build, not inside the final image. |
-| `*.swp`, `*.swo`, `.vscode/`, `.idea/` | IDE/editor files | Development environment files not required in production. |
-| `.env` | Environment variables file | May contain sensitive data such as API keys or secrets. |
-
-# part1
-# Step 1.3 — Build and Compare
-## Docker Image Size Comparison
-
-| Version | Base Image         | Size   |
-|---------|--------------------|--------|
-| v2.0    | python:3.11-slim | 234MB  |
-| v1.0    | python:3.11-alpine   |~105MB|
-
-
-
-# part 3
-# step 3.3
-## Security Scanning
+## Trivy Scan Findings
 
 ### v2.0 Scan Results
-- Total: 5 (HIGH: 5, CRITICAL: 0)
+- **Total: 5** (HIGH: 5, CRITICAL: 0)
 - All vulnerabilities were in Python packages
 
 ### Fix Applied
 - Updated base image: `python:3.11-slim` → `python:3.11-slim-bookworm`
-- Added `apt-get upgrade` to apply OS patches
-- Added `pip install --upgrade pip wheel` in builder stage
+- Added `apt-get upgrade` to apply OS-level patches
+- Added `pip install --upgrade pip wheel` in the builder stage
 
 ### v2.1 Scan Results
-- Total: 9 (HIGH: 7, CRITICAL: 2)
-- Python CVEs in `jaraco.context` and `wheel` persist because
-  they are **vendored inside setuptools** and cannot be upgraded via pip
-- OS CVEs (libc, sqlite, zlib) have **no upstream fix available yet**
-  — status shown as "affected" or "will_not_fix" by Debian
+- **Total: 9** (HIGH: 7, CRITICAL: 2)
+- Python CVEs in `jaraco.context` and `wheel` persist because they are vendored inside `setuptools` and cannot be upgraded independently via pip
+- OS-level CVEs (libc, sqlite, zlib) have no upstream fix available — status shown as `affected` or `will_not_fix` by Debian
 
-### Why This Is Still Valid
-The remaining vulnerabilities are **not fixable at this time** because:
+### Why Remaining Vulnerabilities Are Acceptable
+The remaining vulnerabilities are not fixable at this time because:
 1. Debian has not yet released patches for these OS-level CVEs
-2. The vendored packages inside setuptools cannot be independently upgraded
+2. Vendored packages inside setuptools cannot be independently upgraded
 3. This is a known limitation documented by the Trivy project
 
-In a real production environment, these would be tracked and patched
-as soon as upstream fixes become available.
+In a real production environment, these would be tracked in a vulnerability register and patched as soon as upstream fixes become available.
+
+---
+
+## Start the Full Stack
+
+Start all 5 services (Flask, Redis, PostgreSQL, Prometheus, Grafana):
+
+```bash
+make run
+```
+
+or
+
+```bash
+docker compose up --build -d
+```
+
+Stop the stack:
+
+```bash
+docker compose down
+```
+
+Services exposed:
+| Service | URL |
+|---------|-----|
+| Flask app | http://localhost:5000 |
+| Prometheus | http://localhost:9090 |
+| Grafana | http://localhost:3000 |
+
+Default Grafana login: `admin` / `admin`
+
+---
+
+## Screenshots
+
+All screenshots are in the `screenshots/` folder:
+
+| File | Description |
+|------|-------------|
+| `part1-multistage.png` | Multi-stage Dockerfile build output showing reduced image size |
+| `part2-actions.png` | GitHub Actions workflow running successfully |
+| `part2-ghcr.png` | Image pushed and visible in GitHub Container Registry |
+| `part3-scan-before.png` | Trivy scan results before fixes |
+| `part4-compose.png` | All 5 services running via `docker compose up` |
+| `part4-gitignore.png` | `.gitignore` showing `.env` is excluded |
+| `part5-stack.png` | Prometheus targets showing Flask app being scraped |
+| `part5-grafana.png` | Grafana dashboard displaying Flask metrics |
+| `bonus-alert.png` | Prometheus Alerts UI showing `FlaskAppDown` alert FIRING |
+
+---
+
+## Bonus Features
+
+### Bonus C — Prometheus Alerting
+An alerting rule was added to `prometheus.yml` that fires when the Flask app has been unreachable for more than 30 seconds:
+
+```yaml
+- alert: FlaskAppDown
+  expr: up{job="flask_app"} == 0
+  for: 30s
+  labels:
+    severity: critical
+  annotations:
+    summary: "Flask application is down"
+    description: "The Flask app has been unreachable for more than 30 seconds."
+```
+
+See `bonus-alert.png` for the alert firing in the Prometheus UI.
+
+### Bonus D — .dockerignore
+A `.dockerignore` file excludes unnecessary files from the build context, reducing build time and preventing sensitive files from being included in the image.
+
+| Pattern | Reason |
+|---------|--------|
+| `__pycache__/`, `*.pyc` | Auto-generated Python cache files |
+| `venv/`, `env/` | Virtual environments — deps installed via `requirements.txt` |
+| `.git`, `.gitignore` | Version control files not needed in container |
+| `.env` | May contain sensitive secrets |
+| `*.swp`, `.vscode/`, `.idea/` | IDE/editor files not needed in production |
+
+---
+
+## Reflection
+
+**Hardest part:** The most challenging part was getting the Prometheus alerting rules to load correctly. The rule file was mounted under a different filename than what `prometheus.yml` referenced, causing "No rules found" to appear in the Alerts UI. Debugging required exec-ing into the container to inspect the actual mounted files and cross-referencing the `rule_files:` path. Additionally, switching from Docker Swarm (`overlay` network) to regular Docker Compose (`bridge` network) caused port conflicts that required identifying and removing lingering Swarm services.
+
+**What I learned:**
+- Multi-stage Docker builds can reduce image sizes by over 75%
+- GitHub Actions makes CI/CD straightforward once secrets are configured correctly
+- Trivy helps identify vulnerabilities but some CVEs are unfixable due to upstream dependencies
+- Prometheus uses the built-in `up` metric to detect scrape failures, making it simple to alert on service downtime
+- Docker Swarm and Docker Compose use incompatible network drivers and cannot share ports on the same host

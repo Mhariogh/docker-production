@@ -1,0 +1,35 @@
+global:
+  scrape_interval: 15s       # How often Prometheus scrapes targets
+  evaluation_interval: 15s   # How often alerting rules are evaluated
+
+# ─────────────────────────────────────────────
+# Alerting: connect Prometheus to Alertmanager
+# ─────────────────────────────────────────────
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:9093   # Default Alertmanager address
+
+# ─────────────────────────────────────────────
+# Rule files: load our custom alerting rules
+# ─────────────────────────────────────────────
+rule_files:
+  - "alert_rules.yml"   # Contains the FlaskAppDown alert defined below
+
+# ─────────────────────────────────────────────
+# Scrape configs: what Prometheus monitors
+# ─────────────────────────────────────────────
+scrape_configs:
+  # Prometheus monitors itself
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # Flask application health endpoint
+  # The metric `up` will be 0 when the app is unreachable
+  - job_name: "flask_app"
+    metrics_path: /metrics       # Flask exposes Prometheus metrics here
+    scrape_interval: 10s         # Check every 10 s for faster detection
+    static_configs:
+      - targets: ["web:5000"]   # Flask container / host:port
